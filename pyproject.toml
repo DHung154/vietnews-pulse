@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68,<76"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "news-pipeline"
+version = "0.1.0"
+description = "Spark runtime for Vietnamese news trend and sentiment analysis"
+requires-python = ">=3.10,<3.11"
+dependencies = ["pyspark==3.5.7", "numpy==1.26.4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

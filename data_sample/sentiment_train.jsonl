@@ -1,0 +1,21 @@
+{"row_id":"neg-01","text":"khủng hoảng nghiêm trọng thất bại và thiệt hại","label":"negative","split":"train"}
+{"row_id":"neg-02","text":"vụ việc đáng tiếc gây lo lắng cho người dân","label":"negative","split":"train"}
+{"row_id":"neg-03","text":"doanh nghiệp thua lỗ và kế hoạch gặp khó khăn","label":"negative","split":"train"}
+{"row_id":"neg-04","text":"tai nạn nguy hiểm khiến nhiều người bị thương","label":"negative","split":"train"}
+{"row_id":"neg-05","text":"sản phẩm lỗi bị khách hàng phàn nàn","label":"negative","split":"train"}
+{"row_id":"neg-06","text":"dịch bệnh tiếp tục diễn biến xấu","label":"negative","split":"test"}
+{"row_id":"neg-07","text":"kết quả đáng buồn và nhiều rủi ro","label":"negative","split":"validation"}
+{"row_id":"neu-01","text":"cơ quan công bố kế hoạch mới trong hôm nay","label":"neutral","split":"train"}
+{"row_id":"neu-02","text":"hội nghị diễn ra tại thành phố vào buổi sáng","label":"neutral","split":"train"}
+{"row_id":"neu-03","text":"báo cáo cho biết số liệu được cập nhật","label":"neutral","split":"train"}
+{"row_id":"neu-04","text":"chương trình sẽ bắt đầu từ tuần tới","label":"neutral","split":"train"}
+{"row_id":"neu-05","text":"đại diện thông tin về quy định mới","label":"neutral","split":"train"}
+{"row_id":"neu-06","text":"công ty công bố kết quả kinh doanh quý này","label":"neutral","split":"test"}
+{"row_id":"neu-07","text":"bản tin cập nhật thông tin thị trường","label":"neutral","split":"validation"}
+{"row_id":"pos-01","text":"dự án thành công mang lại hiệu quả cao","label":"positive","split":"train"}
+{"row_id":"pos-02","text":"người dân vui mừng vì dịch vụ được cải thiện","label":"positive","split":"train"}
+{"row_id":"pos-03","text":"đội tuyển giành chiến thắng tuyệt vời","label":"positive","split":"train"}
+{"row_id":"pos-04","text":"sáng kiến mới tạo cơ hội phát triển tốt","label":"positive","split":"train"}
+{"row_id":"pos-05","text":"kết quả tích cực giúp thị trường khởi sắc","label":"positive","split":"train"}
+{"row_id":"pos-06","text":"chính sách hỗ trợ đem lại niềm tin","label":"positive","split":"test"}
+{"row_id":"pos-07","text":"dịch vụ mới nhận phản hồi rất tốt","label":"positive","split":"validation"}

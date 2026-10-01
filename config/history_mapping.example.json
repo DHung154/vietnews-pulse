@@ -1,0 +1,9 @@
+{
+  "title": "<actual_title_column>",
+  "description": "<actual_description_column>",
+  "link": "<actual_link_column>",
+  "published_at": "<actual_published_column>",
+  "source": "<actual_source_column>",
+  "source_record_id": "<actual_id_column>",
+  "category": "<actual_category_column>"
+}

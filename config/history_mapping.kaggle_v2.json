@@ -1,0 +1,9 @@
+{
+  "title": "title",
+  "body_text": "content",
+  "link": "url",
+  "source": "source",
+  "source_record_id": "id",
+  "category": "topic",
+  "source_crawled_at": "crawled_at"
+}

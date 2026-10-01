@@ -1,0 +1,30 @@
+{
+  "version": "category_map_v1",
+  "fallback": "other",
+  "mapping": {
+    "thời sự": "society",
+    "xã hội": "society",
+    "đời sống": "society",
+    "kinh doanh": "business",
+    "tài chính": "business",
+    "bất động sản": "real_estate",
+    "khoa học": "science",
+    "công nghệ": "technology",
+    "thể thao": "sports",
+    "giải trí": "entertainment",
+    "pháp luật": "law",
+    "sức khỏe": "health",
+    "du lịch": "travel",
+    "giáo dục": "education",
+    "thế giới": "world",
+    "world": "world",
+    "business": "business",
+    "technology": "technology",
+    "sports": "sports",
+    "entertainment": "entertainment",
+    "law": "law",
+    "health": "health",
+    "education": "education",
+    "travel": "travel"
+  }
+}

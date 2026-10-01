@@ -1,0 +1,24 @@
+FROM python:3.10-slim-bookworm@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYSPARK_PYTHON=python3 \
+    PYSPARK_DRIVER_PYTHON=python3 \
+    PYTHONPATH=/app/src \
+    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.lock.txt .
+RUN python -m pip install --no-cache-dir --disable-pip-version-check -r requirements.lock.txt
+
+COPY src ./src
+COPY scripts ./scripts
+COPY data_sample ./data_sample
+COPY config ./config
+COPY dashboard ./dashboard
+
+ENTRYPOINT ["python", "scripts/smoke.py"]

@@ -1,0 +1,112 @@
+services:
+  namenode:
+    image: ghcr.io/apache/hadoop:3.3.6@sha256:ede68c4f0e730de6d1cab22cf2a44558bb9c61372b2caf409bbffd70f155fe17
+    hostname: namenode
+    environment:
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
+      HDFS-SITE.XML_dfs.namenode.name.dir: file:///data/name
+      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.namenode.rpc-address: namenode:8020
+      HDFS-SITE.XML_dfs.namenode.rpc-bind-host: 0.0.0.0
+      HDFS-SITE.XML_dfs.namenode.http-address: 0.0.0.0:9870
+      ENSURE_NAMENODE_DIR: /data/name
+    command: ["/opt/hadoop/bin/hdfs", "namenode"]
+    volumes:
+      - hdfs_namenode:/data
+    ports:
+      - "127.0.0.1:9870:9870"
+      - "127.0.0.1:8020:8020"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9870/jmx >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  datanode:
+    image: ghcr.io/apache/hadoop:3.3.6@sha256:ede68c4f0e730de6d1cab22cf2a44558bb9c61372b2caf409bbffd70f155fe17
+    hostname: datanode
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
+      HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
+      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9866
+      HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
+      HDFS-SITE.XML_dfs.client.use.datanode.hostname: "true"
+      WAITFOR: namenode:9870
+      WAITFOR_TIMEOUT: "120"
+    command: ["/opt/hadoop/bin/hdfs", "datanode"]
+    volumes:
+      - hdfs_datanode:/data
+    ports:
+      - "127.0.0.1:9864:9864"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9864/jmx >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  spark-master:
+    image: bigdata-spark-dev
+    hostname: spark-master
+    environment:
+      SPARK_MASTER_HOST: spark-master
+      SPARK_MASTER_PORT: "7077"
+      SPARK_MASTER_WEBUI_PORT: "8080"
+    entrypoint: ["/usr/local/lib/python3.10/site-packages/pyspark/bin/spark-class"]
+    command: ["org.apache.spark.deploy.master.Master"]
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:7077:7077"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/json/', timeout=2)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  spark-worker:
+    image: bigdata-spark-dev
+    hostname: spark-worker
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    environment:
+      SPARK_WORKER_WEBUI_PORT: "8081"
+      SPARK_WORKER_CORES: "1"
+      SPARK_WORKER_MEMORY: 1g
+    entrypoint: ["/usr/local/lib/python3.10/site-packages/pyspark/bin/spark-class"]
+    command: ["org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./runtime:/app/runtime
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/json/', timeout=2)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  cluster-runner:
+    image: bigdata-spark-dev
+    depends_on:
+      namenode:
+        condition: service_healthy
+      datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    entrypoint: ["python", "scripts/cluster_smoke.py"]
+    command: ["--mode", "write"]
+    environment:
+      HADOOP_USER_NAME: hadoop
+    volumes:
+      - ./evidence:/app/evidence
+      - ./runtime:/app/runtime
+
+volumes:
+  hdfs_namenode:
+  hdfs_datanode:

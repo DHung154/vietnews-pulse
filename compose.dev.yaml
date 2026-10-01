@@ -1,0 +1,19 @@
+services:
+  spark-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    working_dir: /app
+    volumes:
+      - ./runtime:/app/runtime
+      - ./evidence:/app/evidence
+      - ./serving:/app/serving
+    command:
+      - --input
+      - data_sample/news_sample.jsonl
+      - --output
+      - runtime/m01/smoke_parquet
+      - --evidence
+      - evidence/m01/container_smoke_manifest.json
+      - --master
+      - local[2]
