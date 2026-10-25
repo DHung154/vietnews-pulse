@@ -32,7 +32,7 @@ Repo chứa code, test, cấu hình và fixture nhỏ. **Không chứa dữ li�
 - UIT-VSFC là feedback sinh viên ngoài miền tin báo; kết quả trên tập này không chứng minh chất lượng tin tức.
 - Nhãn LLM/nhãn yếu phải lưu riêng, không chuyển thành human gold. Giữ tooling kiểm tra provenance/thử nghiệm, không phân phối artifact nhãn AI.
 - Chưa có đủ human news gold để kết luận accuracy thật. Tỷ lệ có prediction không phải độ chính xác.
-- Ngày 01/10/2026: kiểm tra offline 69 pass, 1 Spark skip; coverage 14 ngày vẫn incomplete. Docker máy phát triển lỗi khởi động nên lượt refresh Spark mới còn bị chặn. Không tuyên bố nghiệm thu toàn bộ pipeline.
+- Cập nhật 04/10/2026: Docker/HDFS/Spark đã chạy lại. Một lượt RSS thật đi qua Spark standalone → HDFS → inference/analytics → SQLite → dashboard riêng: 797 observations, 764 bài sau khử trùng; replay và đọc lại sau restart giữ nguyên số bài. Đây không phải nghiệm thu toàn corpus. Kiểm tra Windows: 85 pass, 2 Spark skip; hai test Spark chạy riêng trên Linux: 2/2 pass. Coverage 20/09–03/10 vẫn `incomplete`; chưa có đánh giá trên main news gold do người gán.
 
 ## 3. Yêu cầu
 
@@ -113,7 +113,7 @@ Wrapper chỉ chạy **một lượt**, supervisor deadline 540 giây:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run_collector.ps1 -PythonExecutable "$PWD\.venv\Scripts\python.exe"
 ```
 
-Task Scheduler: kiểm tra task cũ trước khi tạo; action gọi wrapper/Python bằng đường dẫn tuyệt đối, Start in là thư mục repo; trigger mỗi 10 phút; không khởi động instance mới khi instance trước còn chạy (`IgnoreNew`). Chọn tài khoản/điều kiện đăng nhập phù hợp, không mặc định SYSTEM. Máy sleep/offline không thu RSS; resume không bù toàn bộ bài đã trôi khỏi feed.
+Task Scheduler: kiểm tra task cũ trước khi tạo; Start in là thư mục repo, trigger mỗi 10 phút, `IgnoreNew`. Để không bật console, action gọi `C:\Windows\System32\wscript.exe` với arguments `//B //NoLogo "E:\BigData\scripts\run_collector_hidden.vbs" "C:\path\to\python.exe"` (thay đường dẫn repo/Python thật). Launcher gọi chính wrapper hiện có ở chế độ ẩn và giữ exit code; logs vẫn lưu bình thường. Chọn tài khoản/điều kiện đăng nhập phù hợp, không mặc định SYSTEM. Máy sleep/offline không thu RSS; resume không bù toàn bộ bài đã trôi khỏi feed.
 
 Cron Linux (thay đường dẫn thực):
 
@@ -185,6 +185,14 @@ UI: NameNode `http://localhost:9870`, DataNode `http://localhost:9864`, Spark ma
 
 Tắt bằng `docker compose -f compose.yaml stop`. **Không dùng `down -v`, format NameNode hoặc xóa raw/checkpoint để làm test xanh.**
 
+### Kiểm chứng RSS thật trên cluster
+
+`scripts/verify_hdfs_pipeline.py` tái sử dụng stream/snapshot/inference/analytics/export hiện có, nhận một immutable collector manifest và coverage manifest. Chạy trong Linux container nối mạng Compose, với output mới dưới `runtime/`; không đổi serving pointer của dashboard chính. Chế độ `--mode verify` dùng lại đúng input HDFS/checkpoint của lượt thành công sau restart.
+
+`scripts/verify_recovery_fixture.py` kiểm tra thêm 10 bài, replay, late event, khóa writer và publish lỗi trong namespace HDFS riêng. **Mọi input của script này là synthetic**, không cộng vào tin thật hoặc gold.
+
+Xem [kịch bản demo và lệnh chạy lại](docs/DEMO_RUNBOOK_20261004.md). Trên máy phát triển hiện có dashboard chính cổng 8502 và bản demo một lượt RSS/HDFS riêng cổng 8503; máy clone mới cần tự tạo input/model/output, không có sẵn các artifact này.
+
 ## 9. Dataset và nhãn
 
 - Kaggle: tải theo quyền truy cập/điều khoản; kiểm tra schema/mapping trước `scripts/import_history.py`. Thiếu ngày đăng giữ null.
@@ -212,6 +220,10 @@ Runtime, evidence, serving, annotations, corpus và hồ sơ plan/review nội b
 
 ## 11. Xử lý lỗi
 
+### Lab mở rộng Kafka/Airflow (không thay core)
+
+Đã bổ sung code/cấu hình cho bài lab 9 bước theo dữ liệu tin tức: HDFS → Spark ETL/SQL → TF-IDF/K-Means thử nghiệm → lưu kết quả, và Kafka → Structured Streaming do Airflow điều phối thủ công. Xem [runbook 9 bước](docs/NINE_STEPS_RUNBOOK.md) để build/chạy/trigger và kiểm tra evidence. Chỉ xem là integration đã chạy khi có task logs/manifests thật; code hiện diện không phải nghiệm thu. RFM không áp dụng cho tin tức, clustering không thay model sentiment hiện tại.
+
 - **8502 connection refused:** Streamlit chưa chạy/đã thoát; kiểm tra process/port.
 - **Dashboard trống:** chưa có `current.json` hoặc sai `NEWS_SERVING_ROOT`; chạy refresh/export trước.
 - **Docker chỉ có Client/startup error:** khắc phục Engine trước; test offline không thay evidence cluster.
@@ -220,3 +232,31 @@ Runtime, evidence, serving, annotations, corpus và hồ sơ plan/review nội b
 - **SSL/DNS/feed error:** xem lỗi theo feed và TLS diagnostics; không tắt verification hoặc đổi manifest lỗi thành healthy.
 - **Coverage incomplete:** thiếu slot/ngày/feed hoặc HTTP lỗi; không hiển thị mất dữ liệu như số 0 đáng tin cậy.
 - **100% có prediction:** là coverage dự đoán, không phải accuracy 100%.
+
+## 12. Hồ sơ kiểm chứng bổ sung ngày 16/10/2026
+
+### Demo báo cáo online 3-4 phút (cập nhật21/10)
+
+Sau khi Docker Engine sẵn sàng: `./scripts/start_presentation.ps1`, chờ các service healthy rồi mở http://localhost:8504. Chế độ mặc định có sáu cảnh, lời dẫn210giây, pause/chuyển cảnh/fullscreen, terminal thật mở một lần khi bấm Start. Spark live xử lý lại một poll rawRSS trên HDFS vào scope mới; Kafka/Airflow chỉ kiểm tra trạng thái. Full snapshot/model dùng evidence đã lưu và ghi rõ ngày, không giả task hoàn tất theo timer. Xem [hướng dẫn trình diễn và lời nói theo mốc](docs/DEMO_3_MINUTES.md). Chuẩn bị services trước buổi nói; thời gian Docker khởi động không nằm trong3-4phút. Không cần thêm framework, package hoặc backend mới.
+
+Hướng dẫn vận hành được công khai trong [runbook toàn snapshot](docs/FULL_SNAPSHOT_RUNBOOK.md). Nhật ký, bảng đối chiếu evidence và kế hoạch nội bộ giữ trên máy, không kèm repo.
+
+- `scripts/benchmark_snapshot.py`: nhận `--master`, `--input` HDFS, `--output` thư mục mới dưới `/app/runtime`, `--run-id` mới và `--repeats 3`. Chạy trong image Spark/Linux trên cùng Docker network; standalone cần driver hostname truy cập được từ worker. Đo **đọc/tổng hợp/ghi-đọc Parquet canonical**, không phải benchmark toàn pipeline ETL/ML. Một máy không chứng minh scale-out nhiều máy.
+- `python -m scripts.analyze_completion_snapshot --database <snapshot.sqlite> --output evidence/<version_moi>/analysis --end-local YYYY-MM-DD`: SQLite chỉ đọc, ngày cuối phải là ngày Việt Nam đã kết thúc. Xuất coverage, CSV slot thiếu/lỗi, JSON phân bố và SVG; không publish dashboard.
+- `python -m scripts.audit_repo_secrets --output evidence/<version_moi>/security.json`: quét nguồn Git/history và root `.env*`, chỉ lưu fingerprint/vị trí ứng viên, không in secret. Không có pattern match không chứng minh tuyệt đối an toàn.
+- `python scripts/check_completion_step1.py --output evidence/<version_moi>/checks`: unit tests, compile và Docker read; trả khác 0 nếu có check lỗi. Trên Windows, Script Host cần quyền thực thi hợp lệ; không sửa registry/quyền toàn cục để né lỗi sandbox.
+
+Corpus, annotations, model và evidence không có sẵn sau clone. Script benchmark mặc định kiểm tra snapshot 13.388 bài; chỉ chạy khi đã chuẩn bị đúng HDFS input, không dùng fixture để giả count đó. Các wrapper `run_completion_benchmark.py`, `cluster_snapshot_sweep.py`, `capture_completion_services.py`, `package_completion_results.py` đóng gói **lượt đo cố định 16/10**, từ chối output đã có, không phải scheduler production. Khi tái hiện dùng CLI tham số/output version mới; không xóa output cũ.
+
+### Kết quả tiếp nối 16/10: DAG toàn snapshot
+
+Đã chạy DAG mới `vietnews_full_snapshot` ba lượt thành công, mỗi lượt chín task và 13.388 bài; một lượt do scheduler tạo. Lịch `0 * * * *`, timezone Việt Nam, `catchup=False`, `max_active_runs=1`, retry một lần. Đây là **replay snapshot canonical cố định 08/10 qua Kafka → HDFS → Spark → SQLite riêng**, không phải collector lấy tin mới. Không publish vào dashboard production, không train hoặc thay model sentiment.
+
+Xem [runbook toàn snapshot](docs/FULL_SNAPSHOT_RUNBOOK.md) trước khi bật lịch; input HDFS, model và coverage phải được chuẩn bị thật. Mỗi giờ tạo topic/output/checkpoint mới, cần theo dõi dung lượng. DAG cũ `vietnews_nine_steps` giữ manual.
+
+- Import Markdown 100 mẫu pilot giữ nguyên nhãn/text/evidence; ghi tên Võ Đình Hưng theo xác nhận của người dùng, chưa coi pilot là test độc lập hoặc human gold đã freeze. Pool mở rộng 400 mẫu chưa gán.
+- Crash batch Parquet trên 1.000 dòng synthetic: kill khi thấy file staging, không có `_SUCCESS`, retry scope mới đọc đủ 1.000 dòng; không suy thành khôi phục streaming/publish production.
+- Clone công khai commit `c6ba43eecd90f06fa9f94f9aed4acc1440636b2b`: cài venv/dependencies thành công nhưng hai test phụ thuộc artifact cục bộ bị lỗi. Sau bản vá fixture ở `dashboard/demo.py`, `tests/test_demo_console.py`, `tests/test_demo_runner.py`: 80 test, 79 pass và 1 skip. Bản sửa fixture được đưa vào lần cập nhật code này; chưa chạy lại clone sạch từ commit mới.
+- Workspace hiện tại: 114 test, 110 pass, 4 Spark opt-in skip; compile thành công. Chưa công bố accuracy/macro-F1 mới khi chưa có tập test độc lập hợp lệ.
+
+Kiểm tra trước khi xuất bản ngày25/10/2026:120test,116pass/4Sparkopt-in skip, compile thành công. Docker Engine chưa chạy tại thời điểm kiểm tra, vì vậy không coi lần kiểm tra code này là một lần kiểm chứng pipeline live mới. Raw, annotations, model, serving và evidence cần chuẩn bị riêng, không có sẵn sau clone.

@@ -1,0 +1,92 @@
+# Optional lab extension; does not replace compose.yaml or production serving.
+name: vietnews-lab
+services:
+  airflow-init:
+    image: vietnews-airflow-spark:2.10.5-3.5.7
+    user: "0:0"
+    entrypoint: ["python", "-c"]
+    command:
+      - "import os; from pathlib import Path; p=Path('/app/runtime/nine_steps'); assert not p.is_symlink(); os.chown(p,50000,0); q=p/'.lab_writer.lock'; assert not q.is_symlink(); os.chown(q,50000,0) if q.exists() else None"
+    volumes: ["./runtime/nine_steps:/app/runtime/nine_steps"]
+    network_mode: none
+  kafka-init:
+    image: apache/kafka:4.0.2@sha256:29a81359d19e2fc90b38bba622244e7f85eb4c06affd975de5d1576393ef8a9d
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown 1000:1000 /tmp/kraft-combined-logs"]
+    volumes: ["kafka_data:/tmp/kraft-combined-logs"]
+    network_mode: none
+  kafka:
+    image: apache/kafka:4.0.2@sha256:29a81359d19e2fc90b38bba622244e7f85eb4c06affd975de5d1576393ef8a9d
+    hostname: vietnews-kafka
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,CONTROLLER://:29093,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://vietnews-kafka:29092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@vietnews-kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx384m
+    ports: ["127.0.0.1:9094:9092"]
+    volumes: ["kafka_data:/tmp/kraft-combined-logs"]
+    networks: [core]
+    mem_limit: 768m
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.airflow
+    image: vietnews-airflow-spark:2.10.5-3.5.7
+    entrypoint: ["python", "/app/scripts/start_airflow_lab.py"]
+    command: []
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /app/airflow/dags
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+      PYTHONPATH: /app/src:/app/scripts
+      SPARK_LOCAL_IP: 127.0.0.1
+      HADOOP_USER_NAME: hadoop
+      PYSPARK_SUBMIT_ARGS: --driver-memory 768m pyspark-shell
+    ports: ["127.0.0.1:8088:8080"]
+    volumes:
+      - airflow_data:/opt/airflow
+      - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
+      - ./airflow:/app/airflow:ro
+      - ./config:/app/config:ro
+      - ./runtime/data_collection_v2/raw/rss:/app/runtime/data_collection_v2/raw/rss:ro
+      - ./runtime/m04/models:/app/runtime/m04/models:ro
+      - ./runtime/nine_steps:/app/runtime/nine_steps
+      - ./evidence:/app/evidence:ro
+    networks: [core]
+    mem_limit: 3g
+    depends_on:
+      kafka: {condition: service_healthy}
+      airflow-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 16
+networks:
+  core:
+    external: true
+    name: bigdata_default
+volumes:
+  kafka_data:
+  airflow_data:

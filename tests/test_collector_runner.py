@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -8,6 +10,18 @@ from scripts.collector_runner import supervise
 
 
 class CollectorRunnerTest(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "requires native Windows Script Host")
+    def test_hidden_launcher_rejects_missing_or_invalid_python_without_crawling(self):
+        launcher = Path(__file__).resolve().parents[1] / "scripts/run_collector_hidden.vbs"
+        wscript = Path(os.environ["SystemRoot"]) / "System32/wscript.exe"
+        with tempfile.TemporaryDirectory() as temp:
+            for arguments in ([], [str(Path(temp) / "missing_python.exe")]):
+                result = subprocess.run(
+                    [str(wscript), "//B", "//NoLogo", str(launcher), *arguments],
+                    timeout=10, creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                self.assertEqual(result.returncode, 2)
+
     def test_exit_code_utf8_and_unique_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

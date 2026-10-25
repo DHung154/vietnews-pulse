@@ -1,6 +1,7 @@
 import unittest
 
 from src.news_pipeline.event_bulletin import (
+    _tokens,
     build_event_groups,
     deduplicate_articles,
     score_event_groups,
@@ -22,6 +23,17 @@ def _article(article_id, title, event_time, source="source-a", description=""):
 
 
 class EventBulletinTest(unittest.TestCase):
+    def test_token_cache_is_bounded_immutable_and_matches_uncached_tokens(self):
+        _tokens.cache_clear()
+        text = "Vụ cháy nhà Chợ Lớn khiến hai người tử vong"
+        expected = _tokens.__wrapped__(text)
+        self.assertEqual(_tokens(text), expected)
+        self.assertEqual(_tokens(text), expected)
+        self.assertIsInstance(_tokens(text), frozenset)
+        self.assertEqual(_tokens.cache_info().hits, 2)
+        self.assertEqual(_tokens.cache_info().maxsize, 16384)
+        _tokens.cache_clear()
+
     def test_dedup_keeps_one_article_and_tracks_missing_time(self):
         rows, audit = deduplicate_articles(
             [

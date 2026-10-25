@@ -113,7 +113,8 @@ def export_snapshot(enriched: DataFrame, gold_root: Path, output_root: Path, sna
             path = gold_root / name
             if not path.exists():
                 raise FileNotFoundError(f"required gold table is missing: {path}")
-            _insert_batches(connection, enriched.sparkSession.read.parquet(str(path)).select(*columns).toLocalIterator(), sql)
+            # gold_root is a validated local cache; fs.defaultFS may be HDFS.
+            _insert_batches(connection, enriched.sparkSession.read.parquet(path.resolve().as_uri()).select(*columns).toLocalIterator(), sql)
         counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("articles",) + required_gold_tables}
         expected_counts = score_manifest["gold_counts"]
         if any(counts[name] != expected_counts[name] for name in required_gold_tables):

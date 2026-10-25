@@ -5,7 +5,7 @@ services:
     environment:
       CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
       HDFS-SITE.XML_dfs.namenode.name.dir: file:///data/name
-      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.replication: "3"
       HDFS-SITE.XML_dfs.namenode.rpc-address: namenode:8020
       HDFS-SITE.XML_dfs.namenode.rpc-bind-host: 0.0.0.0
       HDFS-SITE.XML_dfs.namenode.http-address: 0.0.0.0:9870
@@ -31,7 +31,7 @@ services:
     environment:
       CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
       HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
-      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.replication: "3"
       HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9866
       HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
       HDFS-SITE.XML_dfs.client.use.datanode.hostname: "true"
@@ -42,6 +42,58 @@ services:
       - hdfs_datanode:/data
     ports:
       - "127.0.0.1:9864:9864"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9864/jmx >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  datanode2:
+    image: ghcr.io/apache/hadoop:3.3.6@sha256:ede68c4f0e730de6d1cab22cf2a44558bb9c61372b2caf409bbffd70f155fe17
+    hostname: datanode2
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
+      HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
+      HDFS-SITE.XML_dfs.replication: "3"
+      HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9866
+      HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
+      HDFS-SITE.XML_dfs.client.use.datanode.hostname: "true"
+      WAITFOR: namenode:9870
+      WAITFOR_TIMEOUT: "120"
+    command: ["/opt/hadoop/bin/hdfs", "datanode"]
+    volumes:
+      - hdfs_datanode2:/data
+    ports:
+      - "127.0.0.1:9865:9864"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9864/jmx >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  datanode3:
+    image: ghcr.io/apache/hadoop:3.3.6@sha256:ede68c4f0e730de6d1cab22cf2a44558bb9c61372b2caf409bbffd70f155fe17
+    hostname: datanode3
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
+      HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
+      HDFS-SITE.XML_dfs.replication: "3"
+      HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9866
+      HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
+      HDFS-SITE.XML_dfs.client.use.datanode.hostname: "true"
+      WAITFOR: namenode:9870
+      WAITFOR_TIMEOUT: "120"
+    command: ["/opt/hadoop/bin/hdfs", "datanode"]
+    volumes:
+      - hdfs_datanode3:/data
+    ports:
+      - "127.0.0.1:9867:9864"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:9864/jmx >/dev/null"]
       interval: 5s
@@ -110,3 +162,5 @@ services:
 volumes:
   hdfs_namenode:
   hdfs_datanode:
+  hdfs_datanode2:
+  hdfs_datanode3:

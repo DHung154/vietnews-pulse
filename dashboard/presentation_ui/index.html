@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VietNews Pulse · Demo đồ án</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="compact.css"></head>
+<body>
+<main id="app">
+  <header class="masthead"><div class="brand"><span class="brand-mark" aria-hidden="true">V<span>•</span></span><div><p class="eyebrow">VIETNEWS PULSE / DEMO ĐỒ ÁN</p><h1>Từ dòng tin đến bức tranh dữ liệu.</h1></div></div><div class="session-tag"><span class="dot"></span><span id="session-status">Sẵn sàng trình diễn</span></div></header>
+  <section class="toolbar" aria-label="Điều khiển trình diễn">
+    <div class="actions"><button id="start" class="primary">▶ Bắt đầu phiên demo</button><button id="play" aria-pressed="false">Phát kịch bản</button><button id="prev" aria-label="Công đoạn trước">←</button><button id="next" aria-label="Công đoạn tiếp theo">→</button><span class="timer" id="timer">00:00 <span>/ 03:30</span></span></div>
+    <div class="actions"><label class="terminal-choice"><input id="terminal-choice" type="checkbox" checked> Mở 1 terminal thật</label><button id="fullscreen">Toàn màn hình ↗</button></div>
+  </section>
+  <div id="alert" role="status" hidden></div>
+  <section class="metrics" aria-label="Dữ liệu và phạm vi"><div><span>SNAPSHOT ĐÃ LƯU · 08/10</span><strong id="full-count">—</strong><small>bài duy nhất · không phải crawl mới</small></div><div><span>POLL DÙNG ĐỂ CHẠY LIVE</span><strong id="poll-count">—</strong><small id="poll-detail">Đang đọc bằng chứng…</small></div><div><span>CHẠY TRỰC TIẾP PHIÊN NÀY</span><strong id="live-count">Chưa chạy</strong><small id="live-detail">ETL riêng · không thay production</small></div><div><span>LUỒNG ĐẦY ĐỦ ĐÃ KIỂM CHỨNG</span><strong id="verified-count">—</strong><small id="archive-date">Đang đọc bằng chứng…</small></div></section>
+  <nav id="chapters" aria-label="Công đoạn trong kịch bản"></nav>
+  <section class="workspace">
+    <article class="stage-panel">
+      <div class="stage-heading"><div><p id="chapter-label" class="eyebrow">01 / BÀI TOÁN</p><h2 id="stage-title">Theo dõi tin tức, có bằng chứng.</h2></div><span class="evidence-badge" id="evidence-badge">MINH HỌA KIẾN TRÚC</span></div>
+      <div id="scene" class="scene" aria-label="Sơ đồ giải thích quy trình"></div>
+      <div class="stage-takeaway"><span class="takeaway-line"></span><p id="takeaway"></p></div>
+      <div class="source-line" id="source-line"></div>
+    </article>
+    <aside class="console-panel" aria-label="Terminal và kiểm tra trực tiếp">
+      <div class="console-heading"><span><span class="console-dot"></span> TERMINAL / KIỂM TRA THẬT</span><span id="live-clock">CHƯA CHẠY</span></div>
+      <div id="checks" class="checks"></div>
+      <div class="command-label" id="command-label">Không phát log giả. Bấm bắt đầu để chạy.</div>
+      <pre id="console" tabindex="0" aria-label="Lệnh và stdout thực tế">$ chờ phiên kiểm tra mới
+
+Lệnh, stdout và exit code sẽ xuất hiện tại đây.
+Kết quả lịch sử không được dùng thay kết quả live.</pre>
+      <div class="console-foot"><span id="console-foot">Output riêng theo session · không xóa raw/checkpoint</span><button id="copy-log" title="Sao chép log đang hiển thị">Copy log</button></div>
+    </aside>
+  </section>
+  <footer class="narration"><div class="cue-label">LỜI DẪN <span id="cue-time">00:00–00:25</span></div><p id="cue"></p><a href="http://localhost:8502" target="_blank" rel="noopener">Mở dashboard →</a></footer>
+  <div class="bottomline"><span>Animation giải thích quy trình, không mô phỏng tiến độ task. Sentiment & nhóm sự kiện: thử nghiệm. Coverage: incomplete.</span><span id="session-id">PHÍM ← →: CHUYỂN CẢNH · SPACE: TẠM DỪNG</span></div>
+  <div class="timeline" aria-label="Thời lượng kịch bản, không phải tiến độ xử lý"><div id="timeline-fill"></div></div>
+</main><script src="presentation.js"></script>
+</body></html>

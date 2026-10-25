@@ -1,0 +1,22 @@
+# Opt-in on one verified VPN interface; retains existing project and volumes.
+services:
+  namenode:
+    ports:
+      - "${HDFS_TEAM_BIND_IP:?Set verified Tailscale IPv4}:8020:8020"
+  datanode:
+    environment:
+      HDFS-SITE.XML_dfs.datanode.hostname: datanode
+    ports:
+      - "${HDFS_TEAM_BIND_IP:?Set verified Tailscale IPv4}:9866:9866"
+  datanode2:
+    environment:
+      HDFS-SITE.XML_dfs.datanode.hostname: datanode2
+      HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9868
+    ports:
+      - "${HDFS_TEAM_BIND_IP:?Set verified Tailscale IPv4}:9868:9868"
+  datanode3:
+    environment:
+      HDFS-SITE.XML_dfs.datanode.hostname: datanode3
+      HDFS-SITE.XML_dfs.datanode.address: 0.0.0.0:9869
+    ports:
+      - "${HDFS_TEAM_BIND_IP:?Set verified Tailscale IPv4}:9869:9869"

@@ -36,6 +36,9 @@ docs/*
 !docs/NINE_STEPS_RUNBOOK.md
 !docs/HDFS_TEAM_VPN.md
 !docs/DEMO_BAO_CAO.md
+!docs/TEAM_DATA_FULL.md
+!docs/FULL_SNAPSHOT_RUNBOOK.md
+!docs/DEMO_3_MINUTES.md
 .env.*
 !.env.example
 *.sqlite

@@ -10,6 +10,7 @@ import hashlib
 import re
 from collections import defaultdict
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Iterable
 
 
@@ -66,12 +67,13 @@ def _time_key(value: str | None) -> tuple[int, str]:
     return (int(parsed.timestamp()) if parsed else -1, str(value or ""))
 
 
-def _tokens(value: str | None) -> set[str]:
-    return {
+@lru_cache(maxsize=16384)
+def _tokens(value: str | None) -> frozenset[str]:
+    return frozenset(
         token.casefold()
         for token in TOKEN_RE.findall(value or "")
         if len(token) > 1 and token.casefold() not in SIGNAL_STOPWORDS
-    }
+    )
 
 
 def _article_text(row: dict) -> str:

@@ -1,0 +1,9 @@
+{
+  "mode": "frozen_canonical_snapshot_replay",
+  "input_hdfs": "hdfs://namenode:8020/news/shared/rss_live_v2/snapshot_20261008T090238Z_81c6a670/clean",
+  "expected_count": 13388,
+  "snapshot_id": "snapshot_20261008T090238Z_81c6a670",
+  "model_version": "tfidf_lr_weak_v3_20260917",
+  "coverage_manifest": "/app/evidence/completion_20261016_v1/analysis/coverage.json",
+  "as_of": "2026-10-08T08:55:08.792652+00:00"
+}

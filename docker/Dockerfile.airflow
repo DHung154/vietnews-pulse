@@ -1,0 +1,9 @@
+FROM bigdata-spark-dev
+USER root
+RUN pip install --no-cache-dir "apache-airflow==2.10.5" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.10.txt" && pip check
+RUN useradd --create-home --uid 50000 --gid 0 airflow && mkdir -p /opt/airflow && chown airflow:0 /opt/airflow
+ENV AIRFLOW_HOME=/opt/airflow
+USER airflow
+# Resolve connector dependencies at build time, not on each DAG run.
+RUN python -c "from pyspark.sql import SparkSession; s=SparkSession.builder.master('local[1]').config('spark.jars.packages','org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.7').config('spark.jars.repositories','https://repo.maven.apache.org/maven2').getOrCreate(); s.stop()"
+ENTRYPOINT ["airflow"]

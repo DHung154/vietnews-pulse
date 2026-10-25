@@ -16,6 +16,24 @@ from news_pipeline.paths import validate_artifact_paths  # noqa: E402
 from news_pipeline.rss import atomic_write_json  # noqa: E402
 
 
+def enrich_news(clean, model_path: str | None, model_version: str):
+    """Shared inference contract; accepts local or HDFS model storage, never fits."""
+    from pyspark.sql import functions as F
+    from pyspark.sql.types import ArrayType, DoubleType, StringType
+
+    if model_path:
+        from pyspark.ml import PipelineModel
+        clean_for_model = clean.withColumn("text", F.udf(clean_text, StringType())("clean_text"))
+        model = PipelineModel.load(model_path)
+        vector_to_list = F.udf(lambda value: value.toArray().tolist() if value is not None else None, ArrayType(DoubleType()))
+        scored = model.transform(clean_for_model).withColumn("probability_array", vector_to_list("probability"))
+        return scored.withColumn("sentiment_label", F.when(F.col("prediction") == 0, "negative").when(F.col("prediction") == 1, "neutral").when(F.col("prediction") == 2, "positive")).withColumn("prob_negative", F.col("probability_array")[0]).withColumn("prob_neutral", F.col("probability_array")[1]).withColumn("prob_positive", F.col("probability_array")[2]).withColumn("predicted_class_probability", F.array_max("probability_array")).withColumn("model_version", F.lit(model_version)).withColumn("text_preprocess_version", F.lit("nfc_html_whitespace_regex_tokenizer_v1")).drop("label_id", "probability_array")
+    enriched = clean.withColumn("sentiment_label", F.lit(None).cast(StringType()))
+    for column in ("prob_negative", "prob_neutral", "prob_positive", "predicted_class_probability"):
+        enriched = enriched.withColumn(column, F.lit(None).cast(DoubleType()))
+    return enriched.withColumn("model_version", F.lit("unavailable")).withColumn("text_preprocess_version", F.lit("nfc_html_whitespace_regex_tokenizer_v1"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--clean", type=Path, required=True)
@@ -30,8 +48,6 @@ def main() -> int:
     validate_artifact_paths(inputs=(args.clean,) + ((args.model,) if args.model else ()), outputs=(args.output_root,), evidence=args.evidence)
     from pyspark.sql import SparkSession
     from pyspark.sql import functions as F
-    from pyspark.sql.types import ArrayType, DoubleType, StringType
-
     spark = SparkSession.builder.master(args.master).appName("news-m05-score").config("spark.sql.session.timeZone", "UTC").getOrCreate()
     run_id = "score_" + uuid.uuid4().hex[:8]
     enriched_path = args.output_root / run_id / "enriched"
@@ -42,16 +58,7 @@ def main() -> int:
             clean = clean.filter(F.col("dataset_id") == args.dataset_id)
         input_count = clean.count()
         resolved_model_version = args.model_version or (args.model.name if args.model else "unavailable")
-        if args.model:
-            from pyspark.ml import PipelineModel
-            clean_text_udf = F.udf(clean_text, StringType())
-            clean_for_model = clean.withColumn("text", clean_text_udf("clean_text"))
-            model = PipelineModel.load(str(args.model))
-            vector_to_list = F.udf(lambda value: value.toArray().tolist() if value is not None else None, ArrayType(DoubleType()))
-            scored = model.transform(clean_for_model).withColumn("probability_array", vector_to_list("probability"))
-            enriched = scored.withColumn("sentiment_label", F.when(F.col("prediction") == 0, "negative").when(F.col("prediction") == 1, "neutral").when(F.col("prediction") == 2, "positive")).withColumn("prob_negative", F.col("probability_array")[0]).withColumn("prob_neutral", F.col("probability_array")[1]).withColumn("prob_positive", F.col("probability_array")[2]).withColumn("predicted_class_probability", F.array_max("probability_array")).withColumn("model_version", F.lit(resolved_model_version)).withColumn("text_preprocess_version", F.lit("nfc_html_whitespace_regex_tokenizer_v1")).drop("label_id", "probability_array")
-        else:
-            enriched = clean.withColumn("sentiment_label", F.lit(None).cast(StringType())).withColumn("prob_negative", F.lit(None).cast(DoubleType())).withColumn("prob_neutral", F.lit(None).cast(DoubleType())).withColumn("prob_positive", F.lit(None).cast(DoubleType())).withColumn("predicted_class_probability", F.lit(None).cast(DoubleType())).withColumn("model_version", F.lit("unavailable")).withColumn("text_preprocess_version", F.lit("nfc_html_whitespace_regex_tokenizer_v1"))
+        enriched = enrich_news(clean, str(args.model) if args.model else None, resolved_model_version)
         enriched.write.mode("errorifexists").parquet(str(enriched_path))
         dataset_ids = [row[0] for row in clean.select("dataset_id").distinct().collect()]
         latest_event_time = clean.select(F.max("event_time")).first()[0]

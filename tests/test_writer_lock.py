@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -30,16 +31,29 @@ class WriterLockTest(unittest.TestCase):
     def test_one_serving_path_is_shared_across_processes(self):
         with tempfile.TemporaryDirectory() as root:
             lock = Path(root) / ".snapshot_writer.lock"
-            code = "import sys,time; sys.path.insert(0, r'E:\\BigData\\src'); from pathlib import Path; from news_pipeline.writer_lock import single_writer; exec(\"with single_writer(Path(sys.argv[1])):\\n    time.sleep(1.5)\")"
-            child = subprocess.Popen([sys.executable, "-c", code, str(lock)], cwd=r"E:\BigData")
+            ready = Path(root) / 'ready'
+            repo = Path(__file__).resolve().parents[1]
+            code = "import sys; sys.path.insert(0, sys.argv[3]); from pathlib import Path; from news_pipeline.writer_lock import single_writer; exec(\"with single_writer(Path(sys.argv[1])):\\n    Path(sys.argv[2]).write_text('locked')\\n    sys.stdin.readline()\")"
+            child = subprocess.Popen([sys.executable, "-c", code, str(lock), str(ready), str(repo / 'src')], cwd=repo, stdin=subprocess.PIPE)
             try:
-                import time
-                time.sleep(0.3)
+                # Readiness is emitted inside the lock; process startup time is not evidence.
+                deadline = time.monotonic() + 10
+                while not ready.exists() and child.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(ready.exists(), 'child did not acquire lock before deadline')
+                self.assertIsNone(child.poll(), 'child exited before contention probe')
                 with self.assertRaises(RuntimeError):
                     with single_writer(lock):
                         pass
             finally:
-                child.wait(timeout=5)
+                try:
+                    child.communicate(b'release\n', timeout=10)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+                    child.communicate(timeout=5)
+            self.assertEqual(child.returncode, 0)
+            with single_writer(lock):
+                pass
 
 
 if __name__ == "__main__":

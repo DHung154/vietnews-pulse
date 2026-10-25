@@ -22,10 +22,10 @@ STEPS = (
     ('verify','Airflow và đối soát cuối','Chín task chạy tuần tự; kiểm tra SQLite, khóa bài và raw không đổi.'))
 
 
-def evidence(step, work=WORK):
+def evidence(step, work=None):
     if step not in {s[0] for s in STEPS}:
         raise ValueError('Unknown stage')
-    return json.loads((work / (step+'.json')).read_text(encoding='utf-8'))
+    return json.loads(((WORK if work is None else work) / (step+'.json')).read_text(encoding='utf-8'))
 
 
 def command(step):
@@ -47,7 +47,7 @@ def command(step):
 
 def main():
     import streamlit as st
-    st.set_page_config(page_title='VietNews | Demo Big Data',layout='wide')
+    st.set_page_config(page_title='VietNews | Demo Big Data',layout='wide',initial_sidebar_state='collapsed')
     st.markdown('''<style>.stApp {background:#f3f6fa;color:#14283d;}
     h1,h2,h3 {color:#14283d;} h1 {font-size:2rem;letter-spacing:-.035em;}
     .block-container {max-width:1280px;padding-top:1.6rem;}
@@ -55,10 +55,15 @@ def main():
     button[kind="primary"]:hover {background:#115e59;border-color:#115e59;}
     button:focus-visible {outline:3px solid #5aa9b4;outline-offset:3px;}
     </style>''',unsafe_allow_html=True)
+    st.sidebar.header('Demo đồ án')
+    mode=st.sidebar.selectbox('Chế độ',['Báo cáo 3–4 phút','Chạy toàn pipeline','Xem chi tiết 9 bước'])
+    if mode=='Báo cáo 3–4 phút':
+        from dashboard.presentation import panel
+        st.markdown('<style>.block-container{max-width:1400px;padding-top:3.7rem;padding-left:1.5rem;padding-right:1.5rem;padding-bottom:.5rem;}</style>',unsafe_allow_html=True)
+        panel(st)
+        return
     st.title('Demo đồ án · VietNews Pulse')
     st.caption('RSS → HDFS → Spark → phân tích → SQLite/dashboard | Kafka và Airflow lab')
-    st.sidebar.header('Demo đồ án')
-    mode=st.sidebar.selectbox('Chế độ',['Chạy toàn pipeline','Xem chi tiết 9 bước'])
     if mode=='Chạy toàn pipeline':
         pipeline_panel(st)
         return

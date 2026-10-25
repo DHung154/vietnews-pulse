@@ -1,0 +1,32 @@
+/* Screen-share density: keep the narrative and controls visible on a laptop. */
+#app{padding-top:4px}
+.masthead{padding-bottom:10px}
+h1{font-size:25px}
+.brand-mark{width:42px;height:42px}
+.toolbar{padding:8px 0}
+.metrics>div{padding:9px 15px}
+.metrics strong{font-size:25px;margin:0}
+.metrics{margin-bottom:8px}
+#chapters{margin-bottom:8px}
+#chapters button{padding:6px 8px}
+.stage-heading{padding-top:14px}
+.stage-heading h2{font-size:21px}
+.scene{min-height:165px}
+.scene svg{height:165px}
+.stage-takeaway{padding-top:4px;padding-bottom:4px}
+.stage-takeaway p{font-size:12px;line-height:1.5}
+.source-line{font-size:9px;padding-bottom:9px}
+pre{height:177px}
+.checks{padding-top:9px;padding-bottom:6px}
+.check{background:#18364a;color:#c3d5e3}
+.console-heading{padding:10px 14px}
+.narration{padding:10px 13px;margin-top:9px}
+.narration p{font-size:12px}
+.bottomline{font-size:9px;margin-top:7px}
+.scene svg{animation:scene-enter 240ms ease-out}
+@keyframes scene-enter{from{opacity:.35;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+:fullscreen #app{padding:20px 26px}
+:fullscreen .scene,:fullscreen .scene svg{height:clamp(180px,30vh,235px)}
+:fullscreen pre{height:clamp(192px,31.5vh,247px)}
+@media(max-width:740px){.scene,.scene svg{height:200px}.scene svg{min-height:200px}.metrics>div{padding:10px}.toolbar{gap:10px}.narration p{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.scene svg{animation:none}}
