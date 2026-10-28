@@ -23,13 +23,13 @@ def main(session_id):
     docker=['docker','--config',str(ROOT/'runtime/docker-config')]
     topic=json.loads((ROOT/'runtime/nine_steps'/FULL/'kafka.json').read_text())['topic']
     commands=[
-        ('health',docker+['exec','bigdata-namenode-1','hdfs','dfsadmin','-report'],15),
+        ('health',docker+['exec','bigdata-namenode-1','hdfs','dfsadmin','-report'],8),
         ('etl',docker+['run','--rm','--name','vn-'+session_id,'--network','bigdata_default','--cpus','2','--memory','2g',
             '--entrypoint','python','--env','HADOOP_USER_NAME=hadoop','--env','PYSPARK_SUBMIT_ARGS=--driver-memory 768m pyspark-shell',
             '--mount','type=bind,source='+str(ROOT)+',target=/app','bigdata-spark-dev',
-            '/app/scripts/presentation_etl.py','--session-id',session_id],100),
-        ('kafka',docker+['exec','vietnews-lab-kafka-1','/opt/kafka/bin/kafka-topics.sh','--bootstrap-server','localhost:29092','--describe','--topic',topic],12),
-        ('airflow',docker+['exec','vietnews-lab-airflow-1','airflow','dags','list-runs','-d','vietnews_full_snapshot','--output','json'],12),
+            '/app/scripts/presentation_etl.py','--session-id',session_id],80),
+        ('kafka',docker+['exec','vietnews-lab-kafka-1','/opt/kafka/bin/kafka-topics.sh','--bootstrap-server','localhost:29092','--describe','--topic',topic],8),
+        ('airflow',docker+['exec','vietnews-lab-airflow-1','airflow','dags','list-runs','-d','vietnews_full_snapshot','--output','json'],8),
         ('sqlite',[sys.executable,'-c',"import sqlite3,json,pathlib; root=pathlib.Path("+repr(str(PRODUCTION))+");p=json.loads((root/'current.json').read_text());c=sqlite3.connect((root/p['db_path']).as_uri()+'?mode=ro',uri=True);integrity=c.execute('PRAGMA integrity_check').fetchone()[0];rows=c.execute('SELECT dataset_id,COUNT(*),COUNT(DISTINCT article_id) FROM articles GROUP BY dataset_id').fetchall();assert integrity=='ok' and rows and all(n==u and n>0 for _,n,u in rows);assert c.execute('SELECT model_version FROM snapshot_meta WHERE snapshot_id=?',(p['snapshot_id'],)).fetchone()[0]==p['model_version'];print('integrity:',integrity);print('dataset/count/unique:',rows);print('model:',p['model_version']);c.close()"],8),
     ]
     def save():atomic_write_json(work/'state.json',state)
@@ -37,10 +37,12 @@ def main(session_id):
         print(text,flush=True)
         with (work/'terminal.log').open('a',encoding='utf-8') as handle:handle.write(text+'\n')
     with single_writer(work/'worker.lock'):
+        deadline=time.monotonic()+105
         save()
         log('VIETNEWS PULSE | DEMO DO AN | REAL COMMANDS / REAL OUTPUT')
         log('Session: '+session_id+' | Archived RSS poll -> live ETL; production unchanged')
         for key,argv,timeout in commands:
+            timeout=min(timeout,max(1,int(deadline-time.monotonic())))
             step=state['steps'][key]
             step.update(state='running',started_at=datetime.now(timezone.utc).isoformat(),command=subprocess.list2cmdline(argv))
             save();log('\n$ '+subprocess.list2cmdline(argv))
@@ -84,10 +86,31 @@ def main(session_id):
         save();log('\nSESSION '+state['status'].upper()+' | logs retained at '+str(work))
 
 
+def follow_session(session_id):
+    work=session_path(session_id)
+    path=work/'terminal.log'
+    print('VIETNEWS PULSE | '+session_id+' | LIVE LOG',flush=True)
+    print('Dong cua so nay khong dung xu ly. Co the mo lai tu web.\n',flush=True)
+    offset=0
+    while True:
+        if path.exists():
+            with path.open(encoding='utf-8',errors='replace') as reader:
+                reader.seek(offset);chunk=reader.read();offset=reader.tell()
+            if chunk:print(chunk,end='',flush=True)
+        state=json.loads((work/'state.json').read_text(encoding='utf-8'))
+        if state.get('status') not in ('queued','running'):break
+        if state.get('pid'):
+            from dashboard.presentation import _pid_running
+            if not _pid_running(state['pid']):
+                print('\nWorker da dung. Log cua phien van duoc giu.',flush=True);break
+        time.sleep(.35)
+
+
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--session-id',required=True)
     parser.add_argument('--keep-open',action='store_true')
+    parser.add_argument('--follow-only',action='store_true')
     args=parser.parse_args()
     if args.keep_open and os.name=='nt':
         # Streamlit may inherit redirected handles. Explicitly attach this new console.
@@ -99,10 +122,12 @@ if __name__=='__main__':
             ctypes.windll.kernel32.SetConsoleTitleW('VietNews Pulse | Demo do an | Lenh va log that')
         except OSError:
             pass  # File logs still work if the host cannot expose a console.
-    try:main(args.session_id)
+    try:
+        if args.follow_only:follow_session(args.session_id)
+        else:main(args.session_id)
     except Exception as exc:
         target=session_path(args.session_id)/'state.json'
-        if target.exists():
+        if target.exists() and not args.follow_only:
             data=json.loads(target.read_text(encoding='utf-8'));data.update(status='failed',error=str(exc));atomic_write_json(target,data)
         print('FAILED:',exc,flush=True)
     if args.keep_open:

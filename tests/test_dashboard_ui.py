@@ -14,6 +14,7 @@ from dashboard.app import (
     CATEGORY_LABELS,
     SENTIMENT_LABELS,
     SOURCE_LABELS,
+    _article_card,
     _format_date,
     _format_number,
     _format_timestamp,
@@ -76,12 +77,16 @@ class DashboardUITest(unittest.TestCase):
         self.assertEqual(values[3], f"{rate:.1%}")
         date_caption = next(c.value for c in at.caption if c.value.startswith("Ngày đăng của toàn dataset"))
         self.assertIn(f"{_format_date(min_date)} → {_format_date(max_date)}", date_caption)
-        self.assertIn("không phải khoảng thời gian thu thập RSS", date_caption)
         self.assertNotIn("Khoảng ngày bao phủ", [m.label for m in at.metric])
-        for warning in at.warning:
-            if "Coverage hiện tại" in warning.value:
-                self.assertIn("14 ngày và tỷ lệ slot", warning.value)
-                self.assertNotIn("14 ngày hoặc", warning.value)
+        self.assertEqual(len(at.warning), 0)
+        overview_text = " ".join(m.value for m in at.tabs[0].markdown)
+        self.assertNotIn("Manifest:", overview_text)
+        self.assertNotIn("Model version:", overview_text)
+        processing = next(e for e in at.expander if e.label == "Thông tin xử lý")
+        self.assertFalse(processing.proto.expanded)
+        metadata_text = " ".join(m.value for m in processing.markdown)
+        self.assertIn(pointer["model_version"], metadata_text)
+        self.assertIn("Coverage (metadata)", metadata_text)
 
     def test_search_filter_and_empty_state(self):
         """Verify search filter narrowing and empty state message when no results match."""
@@ -124,11 +129,27 @@ class DashboardUITest(unittest.TestCase):
         at.run(timeout=30)
         self.assertEqual(len(at.exception), 0)
 
-        # Find reset button in sidebar
+        default_total = at.metric[0].value
+        at.sidebar.text_input(key="filter_search").input("XYZ_NONEXISTENT_KEYWORD_9999").run(timeout=30)
+        self.assertEqual(at.metric[0].value, "0")
+        # Reset must clear the visible text as well as restore the count.
         reset_btn = at.sidebar.button[0]
         self.assertIn("Đặt lại bộ lọc", reset_btn.label)
         reset_btn.click().run(timeout=30)
         self.assertEqual(len(at.exception), 0)
+        self.assertEqual(at.sidebar.text_input(key="filter_search").value, "")
+        self.assertEqual(at.metric[0].value, default_total)
+        self.assertEqual(at.number_input(key="article_page").value, 1)
+
+    def test_article_card_escapes_feed_content_and_rejects_script_links(self):
+        card = _article_card(("1", '<script>alert("x")</script>', "vnexpress", "sports", "2026-10-08", None, "javascript:alert(1)"))
+        self.assertIn("&lt;script&gt;", card)
+        self.assertNotIn("<script>", card)
+        self.assertNotIn("javascript:", card)
+        self.assertIn("Chưa có dự đoán", card)
+        safe = _article_card(("2", "Tiêu đề đầy đủ", "vnexpress", "sports", "2026-10-08", "positive", 'https://example.com/?a=1&b="x"'))
+        self.assertIn("rel=\"noopener noreferrer\"", safe)
+        self.assertIn("&amp;b=&quot;x&quot;", safe)
 
     def test_graceful_handling_missing_snapshot(self):
         """Verify graceful error presentation when pointing to missing/corrupted serving root."""

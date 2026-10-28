@@ -56,8 +56,8 @@ def main():
     button:focus-visible {outline:3px solid #5aa9b4;outline-offset:3px;}
     </style>''',unsafe_allow_html=True)
     st.sidebar.header('Demo đồ án')
-    mode=st.sidebar.selectbox('Chế độ',['Báo cáo 3–4 phút','Chạy toàn pipeline','Xem chi tiết 9 bước'])
-    if mode=='Báo cáo 3–4 phút':
+    mode=st.sidebar.selectbox('Chế độ',['Demo nhanh · 1 phút 45 giây','Chạy toàn pipeline','Xem chi tiết 9 bước'])
+    if mode=='Demo nhanh · 1 phút 45 giây':
         from dashboard.presentation import panel
         st.markdown('<style>.block-container{max-width:1400px;padding-top:3.7rem;padding-left:1.5rem;padding-right:1.5rem;padding-bottom:.5rem;}</style>',unsafe_allow_html=True)
         panel(st)

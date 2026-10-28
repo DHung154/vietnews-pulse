@@ -38,6 +38,7 @@ def run(args):
     from streamlit.testing.v1 import AppTest
     app = AppTest.from_file(str(ROOT / "dashboard/app.py")).run(timeout=60)
     assert not app.exception, [e.value for e in app.exception]
+    assert not app.warning, [w.value for w in app.warning]
     assert app.sidebar.selectbox(key="filter_dataset").value == "rss_live_v2"
     assert int(app.metric[0].value.replace(".", "")) == total
     app.sidebar.selectbox(key="filter_source").select(source).run(timeout=60)
@@ -47,11 +48,15 @@ def run(args):
     assert not app.exception
     app.sidebar.text_input(key="filter_search").input("NO_MATCH_38df610b_test").run(timeout=60)
     assert not app.exception and app.metric[0].value == "0"
+    assert app.number_input(key="article_page").value == 1
+    app.sidebar.button[0].click().run(timeout=60)
+    assert not app.exception and int(app.metric[0].value.replace(".", "")) == total
+    assert app.sidebar.text_input(key="filter_search").value == ""
     result = {"status": "ok", "snapshot_id": pointer["snapshot_id"], "model_version": meta[0],
         "coverage_status": meta[1], "rss_live_v2_articles": total, "distinct_article_ids": unique,
         "predicted_articles": predicted, "sources": sources, "categories": categories,
         "apptest": {"exception_count": 0, "source": source, "source_count": source_count,
-            "pagination": "ok", "empty_filter": "ok"}, "browser": "not_requested"}
+            "pagination": "ok", "empty_filter": "ok", "reset_filters": "ok", "warning_banners": 0}, "browser": "not_requested"}
     if args.browser:
         try:
             from playwright.sync_api import sync_playwright
@@ -73,9 +78,9 @@ def run(args):
                 page.screenshot(path=str(output / "charts.png"))
                 page.get_by_text("Top từ khóa xuất hiện nhiều nhất", exact=True).scroll_into_view_if_needed()
                 page.screenshot(path=str(output / "keywords.png"))
-                for text, filename in (("Khám phá bài báo", "articles.png"), ("Chất lượng dữ liệu", "quality.png")):
+                for text, filename in (("Khám phá bài báo", "articles.png"), ("Thông tin dữ liệu", "quality.png")):
                     page.get_by_role("tab", name=text, exact=False).click()
-                    heading = "Khám phá danh sách bài báo" if filename == "articles.png" else "Chất lượng dữ liệu và Giới hạn hệ thống"
+                    heading = "Khám phá danh sách bài báo" if filename == "articles.png" else "Thông tin dữ liệu"
                     page.get_by_text(heading, exact=True).scroll_into_view_if_needed()
                     if filename == "quality.png":
                         date_caption = page.locator('[data-testid="stCaptionContainer"]').filter(has_text="Ngày đăng của toàn dataset").first

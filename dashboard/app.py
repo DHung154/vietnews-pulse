@@ -253,6 +253,28 @@ def _safe_url(value: str | None) -> str:
     return str(value) if parsed.scheme in {"http", "https"} and parsed.netloc else ""
 
 
+def _article_card(row: tuple) -> str:
+    _, title, source, category, event_date, sentiment, url = row
+    title_text = html.escape(title or "(Không có tiêu đề)")
+    safe_url = _safe_url(url)
+    headline = (
+        f'<a class="article-title" href="{html.escape(safe_url, quote=True)}" '
+        f'target="_blank" rel="noopener noreferrer">{title_text}</a>'
+        if safe_url else f'<span class="article-title">{title_text}</span>'
+    )
+    source_text = html.escape(SOURCE_LABELS.get(source, source or "Chưa rõ"))
+    category_text = html.escape(CATEGORY_LABELS.get(category, category or "Khác"))
+    date_text = html.escape(_format_date(event_date))
+    label = html.escape(SENTIMENT_LABELS.get(sentiment, "Chưa có dự đoán"))
+    color = SENTIMENT_COLORS.get(sentiment, SLATE)
+    return (
+        f'<article class="article-card">{headline}<div class="article-meta">'
+        f'<span class="article-source">{source_text}</span><span>{date_text}</span>'
+        f'<span>{category_text}</span><span class="article-sentiment" style="color:{color}">{label}</span>'
+        '</div></article>'
+    )
+
+
 def _aggregate_trends(rows: list[tuple]) -> list[dict]:
     grouped: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for _, row_category, previous_count, current_count, *_ in rows:
@@ -302,8 +324,8 @@ def _style(st) -> None:
 
         /* 1366x768 and desktop container ergonomics */
         .block-container {
-            max-width: 1360px;
-            padding-top: 4.5rem;
+            max-width: 1440px;
+            padding-top: 4rem;
             padding-bottom: 2.5rem;
             padding-left: 1.5rem;
             padding-right: 1.5rem;
@@ -318,33 +340,37 @@ def _style(st) -> None:
             padding-left: 1rem;
             padding-right: 1rem;
         }
+        [data-testid="stHeader"] { background: transparent; }
+        [data-testid="stDecoration"] { display: none; }
 
         /* Hero banner */
         .news-hero {
             background: linear-gradient(135deg, #0f172a 0%, #115e59 58%, #0f766e 100%);
             border-radius: 14px;
-            padding: 1.35rem 1.75rem 1.25rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12);
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 0;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
         }
         .news-hero-kicker {
             color: #5eead4;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             margin-bottom: 0.25rem;
         }
-        .news-hero-title {
+        .news-hero h1.news-hero-title {
             color: #ffffff;
-            font-size: clamp(1.45rem, 2.3vw, 2.05rem);
+            font-size: clamp(1.45rem, 2.1vw, 1.9rem);
             font-weight: 750;
             line-height: 1.2;
-            margin: 0 0 0.35rem 0;
+            margin: 0.4rem 0 0.5rem !important;
+            padding: 0 !important;
+            text-wrap: balance;
         }
         .news-hero-desc {
             color: #ccfbf1;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             margin: 0;
             line-height: 1.45;
             max-width: 840px;
@@ -358,6 +384,7 @@ def _style(st) -> None:
             padding: 0.85rem 1rem;
             box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
             min-width: 0;
+            min-height: 100px;
         }
         [data-testid="stMetricLabel"] {
             color: #64748b;
@@ -373,16 +400,62 @@ def _style(st) -> None:
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        [data-testid="stMetricLabel"] p {
+            white-space: normal;
+            line-height: 1.3;
+        }
 
         /* Event card styling */
-        .event-card {
+        .event-title {
+            color: #0f172a;
+            font-size: 1.02rem;
+            line-height: 1.5;
+            font-weight: 650;
+            margin-bottom: 0.6rem;
+        }
+        .event-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.45rem 0.8rem;
+            color: #64748b;
+            font-size: 0.84rem;
+            line-height: 1.5;
+        }
+        .event-summary strong { color: #0f766e; }
+        .event-sources {
+            color: #64748b;
+            font-size: 0.82rem;
+            margin-top: 0.5rem;
+        }
+        .article-card {
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 0.95rem 1.15rem;
-            margin-bottom: 0.75rem;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.65rem;
+            overflow-wrap: anywhere;
         }
+        a.article-title, span.article-title {
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.6;
+            text-decoration: none;
+        }
+        a.article-title:hover { color: #0f766e; text-decoration: underline; }
+        a.article-title:focus-visible { outline: 2px solid #0f766e; outline-offset: 3px; }
+        .article-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem 1rem;
+            margin-top: 0.5rem;
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+        .article-source { color: #0f766e; font-weight: 600; }
+        .article-sentiment { font-weight: 600; }
         .event-badge {
             display: inline-block;
             padding: 0.18rem 0.5rem;
@@ -404,6 +477,7 @@ def _style(st) -> None:
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
         }
+        [role="tab"][aria-selected="true"] { color: #0f766e; }
         [data-testid="stExpander"] {
             border: 1px solid #e2e8f0;
             border-radius: 10px;
@@ -572,7 +646,8 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     _style(st)
-    st.sidebar.link_button("Trình diễn 9 bước Big Data", "http://localhost:8504")
+    st.sidebar.markdown("### VietNews Pulse")
+    st.sidebar.link_button("Mở demo pipeline", "http://localhost:8504", use_container_width=True)
 
     root = Path(os.environ.get("NEWS_SERVING_ROOT", "serving"))
     connection = None
@@ -607,22 +682,7 @@ def main() -> None:
         # ---------------------------------------------------------
         # SIDEBAR FILTERS
         # ---------------------------------------------------------
-        st.sidebar.markdown("### 🔍 Bộ lọc dữ liệu")
-        st.sidebar.caption("Thu hẹp phạm vi phân tích trên snapshot serving hiện tại.")
-
-        # Reset button
-        if st.sidebar.button("🔄 Đặt lại bộ lọc", use_container_width=True, type="secondary"):
-            for key in [
-                "filter_source",
-                "filter_category",
-                "filter_sentiment",
-                "filter_search",
-                "filter_date",
-                "article_page",
-            ]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
+        st.sidebar.markdown("#### Bộ lọc dữ liệu")
 
         # Dataset selector: default rss_live_v2 if available
         dataset_index = datasets.index("rss_live_v2") if "rss_live_v2" in datasets else 0
@@ -700,8 +760,17 @@ def main() -> None:
             key="filter_search",
         )
 
+        def reset_filters():
+            for key in ("filter_source", "filter_category", "filter_sentiment"):
+                st.session_state[key] = "Tất cả"
+            st.session_state["filter_search"] = ""
+            st.session_state["article_page"] = 1
+            if min_date and max_date:
+                st.session_state["filter_date"] = (date.fromisoformat(min_date), date.fromisoformat(max_date))
+
+        st.sidebar.button("Đặt lại bộ lọc", use_container_width=True, on_click=reset_filters)
         st.sidebar.divider()
-        st.sidebar.caption("Snapshot chỉ đọc. Các thống kê được tính toán trực tiếp từ dữ liệu hiện có.")
+        st.sidebar.caption("Thời gian hiển thị theo giờ Việt Nam.")
 
         # ---------------------------------------------------------
         # QUERY MAIN KPIS
@@ -725,9 +794,9 @@ def main() -> None:
         st.markdown(
             """
             <div class="news-hero">
-              <div class="news-hero-kicker">HỆ THỐNG PHÂN TÍCH TIN TỨC TIẾNG VIỆT · VIETNEWS PULSE</div>
+              <div class="news-hero-kicker">VIETNEWS PULSE · PHÂN TÍCH TIN TỨC</div>
               <h1 class="news-hero-title">Theo dõi xu hướng tin tức Việt Nam</h1>
-              <p class="news-hero-desc">Theo dõi nhịp độ xuất bản, phát hiện biến động chủ đề và phân tích sắc thái nội dung từ các luồng RSS báo chí chính thống.</p>
+              <p class="news-hero-desc">Khám phá nhịp độ đưa tin, chủ đề nổi bật và các bài báo từ nhiều nguồn.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -735,22 +804,8 @@ def main() -> None:
 
         formatted_pub_time = _format_timestamp(published_at)
         st.caption(
-            f"🕒 Cập nhật snapshot: **{formatted_pub_time} (Giờ Việt Nam)** · "
-            f"Dataset: **{dataset_id}** · Snapshot ID: `{snapshot_id}`"
+            f"Dữ liệu cập nhật: **{formatted_pub_time}** · Giờ Việt Nam"
         )
-
-        # MANDATORY WARNINGS
-        st.warning(
-            f"⚠️ **Model đang dùng: `{active_model}`** — **Model thử nghiệm, chưa được đánh giá trên tập tin tức độc lập do người gán nhãn.** "
-            "Sắc thái bài báo mô tả nội dung tiêu đề và mô tả, không phải cảm xúc độc giả hoặc thái độ công chúng."
-        )
-
-        if coverage_status != "ok":
-            st.warning(
-                f"⚠️ **Tình trạng thu thập (Coverage): `{coverage_status}`** — Dữ liệu quan sát chưa hoàn chỉnh (incomplete). "
-                "Khoảng trống nguồn không được coi là 0 bài; chưa đủ căn cứ để kết luận xu hướng tăng hoặc giảm là đáng tin cậy."
-                + (f" (Manifest: `{coverage_manifest_path}`)" if coverage_manifest_path else "")
-            )
 
         # ---------------------------------------------------------
         # 4 KPI METRIC CARDS
@@ -765,35 +820,11 @@ def main() -> None:
             help="Tỷ lệ bài viết đã được mô hình gán nhãn dự đoán sắc thái (prediction coverage). Đây không phải là độ chính xác (accuracy) của mô hình.",
         )
 
-        # TECHNICAL PROCESSING EXPANDER
-        with st.expander("ℹ️ Thông tin xử lý"):
-            info_left, info_right = st.columns(2)
-            with info_left:
-                st.markdown(
-                    f"""
-                    - **Snapshot ID:** `{snapshot_id}`
-                    - **Dataset ID:** `{dataset_id}`
-                    - **Mô hình phục vụ:** `{active_model}`
-                    - **Thời điểm xuất bản snapshot:** {_format_timestamp(published_at)}
-                    - **Cơ sở dữ liệu serving:** `{Path(db_path).name}`
-                    """
-                )
-            with info_right:
-                st.markdown(
-                    f"""
-                    - **Cửa sổ so sánh trend (giờ VN):** {_format_timestamp(window_bounds[0])} → {_format_timestamp(window_bounds[2])}
-                    - **Mốc ranh giới cửa sổ hiện tại:** {_format_timestamp(window_bounds[1])}
-                    - **Múi giờ phân tích:** Asia/Ho_Chi_Minh (UTC+07:00)
-                    - **Tình trạng coverage:** `{coverage_status}`
-                    - **Đường dẫn manifest:** `{coverage_manifest_path or "Chưa gắn"}`
-                    """
-                )
-
         # ---------------------------------------------------------
         # 3 MAIN TABS
         # ---------------------------------------------------------
         overview_tab, articles_tab, quality_tab = st.tabs(
-            ["📊 Tổng quan", "📰 Khám phá bài báo", "🛡️ Chất lượng dữ liệu"]
+            ["Tổng quan", "Khám phá bài báo", "Thông tin dữ liệu"]
         )
 
         # =========================================================
@@ -803,8 +834,7 @@ def main() -> None:
             st.markdown('<div class="section-tag">DIỄN BIẾN ĐÁNG CHÚ Ý</div>', unsafe_allow_html=True)
             st.subheader("Bản tin biến động")
             st.caption(
-                "Tối đa 5 ứng viên biến động nổi bật so sánh giữa hai cửa sổ 6 giờ đã kết thúc. "
-                "Nhóm sự kiện là kỹ thuật gom cụm heuristic thử nghiệm; cùng chủ đề chưa chắc cùng sự kiện và chưa được thẩm định độc lập."
+                "Nhóm tin và bài báo trong hai cửa sổ 6 giờ đã kết thúc."
             )
 
             bulletin_bounds = _trend_window_bounds(window_bounds, date_start, date_end)
@@ -816,7 +846,7 @@ def main() -> None:
             )
 
             if bulletin_error:
-                st.info(f"ℹ️ {bulletin_error} Có thể tiếp tục theo dõi biến động theo chủ đề ở các biểu đồ bên dưới.")
+                st.caption("Chưa có bản tin cho bộ dữ liệu đang chọn. Xem các biểu đồ bên dưới.")
             else:
                 _, bulletin_articles = _event_bulletin_scope_rows(
                     connection,
@@ -837,51 +867,31 @@ def main() -> None:
                     coverage_status or "unknown",
                 )
 
-                if coverage_status != "ok":
-                    st.warning(
-                        "⚠️ Biến động trong dữ liệu đã thu thập. Coverage chưa đủ nên không kết luận tăng hoặc giảm là xu hướng thực tế."
-                    )
-
                 if not bulletin_rows:
                     st.info("Chưa có ứng viên sự kiện trong hai cửa sổ và bộ lọc hiện tại.")
                 else:
                     for item in bulletin_rows[:5]:
-                        with st.container():
-                            card_left, card_right = st.columns([3, 1])
-                            with card_left:
-                                safe_event_name = html.escape(item.get("event_name", "Sự kiện chưa đặt tên"))
-                                st.markdown(f"**{safe_event_name}**")
+                        with st.container(border=True):
+                            safe_event_name = html.escape(item.get("event_name", "Nhóm tin chưa đặt tên"))
+                            source_names = [SOURCE_LABELS.get(s, s) for s in item.get("sources", [])]
+                            source_text = html.escape(", ".join(source_names) or "Chưa rõ nguồn")
+                            badge = "NHIỀU NGUỒN" if item["multi_source"] else "MỘT NGUỒN"
+                            delta_text = f"Trước: {item['previous_count']} · Hiện tại: {item['current_count']}"
+                            if item["status"] == "new":
+                                delta_text = "Mới xuất hiện"
+                            st.markdown(
+                                f'<div class="event-title">{safe_event_name}</div>'
+                                f'<div class="event-summary"><span class="event-badge badge-obs">{badge}</span>'
+                                f'<span><strong>{item["current_count"]}</strong> bài hiện tại</span>'
+                                f'<span><strong>{item["source_count"]}</strong> nguồn báo</span>'
+                                f'<span>{html.escape(delta_text)}</span></div>'
+                                f'<div class="event-sources">{source_text}</div>',
+                                unsafe_allow_html=True,
+                            )
 
-                                # Status badge and metrics description
-                                if item["status"] == "observed_only":
-                                    badge_html = '<span class="event-badge badge-obs">QUAN SÁT</span>'
-                                    delta_text = f"Cửa sổ trước: {item['previous_count']} bài → Cửa sổ hiện tại: {item['current_count']} bài"
-                                elif item["status"] == "new":
-                                    badge_html = '<span class="event-badge badge-new">MỚI XUẤT HIỆN</span>'
-                                    delta_text = f"Mới xuất hiện · {item['current_count']} bài"
-                                else:
-                                    badge_html = f'<span class="event-badge badge-obs">{item["status"].upper()}</span>'
-                                    delta_text = f"Trước: {item['previous_count']} → Hiện tại: {item['current_count']} bài (Δ {item['observed_delta']:+d})"
-
-                                source_names = [SOURCE_LABELS.get(s, s) for s in item.get("sources", [])]
-                                if item["multi_source"]:
-                                    src_badge = '<span class="event-badge badge-multi">ĐA NGUỒN</span>'
-                                    src_text = f"Nhiều nguồn cùng đưa tin: {', '.join(source_names)}"
-                                else:
-                                    src_badge = '<span class="event-badge badge-single">ĐƠN NGUỒN</span>'
-                                    src_text = f"Một nguồn trong cửa sổ: {', '.join(source_names) or 'chưa rõ'}"
-
-                                st.markdown(f"{badge_html} {src_badge} <span style='color:#64748b;font-size:0.85rem;'>{delta_text} · {src_text}</span>", unsafe_allow_html=True)
-
-                            with card_right:
-                                c1, c2 = st.columns(2)
-                                c1.metric("Bài hiện tại", _format_number(item["current_count"]))
-                                c2.metric("Số nguồn", _format_number(item["source_count"]))
-
-                            with st.expander("📄 Xem diễn biến và bài bằng chứng"):
+                            with st.expander("Xem bài báo và diễn biến"):
                                 st.caption(
-                                    f"Xuất hiện đầu tiên trong bằng chứng: {_format_timestamp(item['first_seen_at'])}. "
-                                    "Sắc thái chỉ là thông tin tham khảo từ mô hình baseline thử nghiệm."
+                                    f"Bài đầu tiên trong nhóm: {_format_timestamp(item['first_seen_at'])}."
                                 )
                                 detail_rows = _event_detail_rows(
                                     item,
@@ -900,9 +910,6 @@ def main() -> None:
                                     )
                                 else:
                                     st.info("Không còn bài báo bằng chứng nào trong phạm vi bộ lọc hiện tại.")
-
-                                if item.get("review_status") != "human_reviewed":
-                                    st.caption("⚠️ Nhóm sự kiện do thuật toán heuristic đề xuất, chưa được chuyên viên thẩm định.")
 
             st.divider()
 
@@ -973,7 +980,7 @@ def main() -> None:
             with col_sentiment:
                 st.markdown('<div class="section-tag">SẮC THÁI NỘI DUNG</div>', unsafe_allow_html=True)
                 st.subheader("Phân bố sắc thái nội dung")
-                st.caption("Sắc thái được mô hình dự đoán từ tiêu đề và mô tả bài báo; không đại diện cho cảm xúc độc giả.")
+                st.caption("Nhãn do mô hình dự đoán từ tiêu đề và mô tả bài báo.")
 
                 sentiment_counts = connection.execute(
                     f"SELECT sentiment_label, COUNT(*) FROM articles{where} "
@@ -1027,8 +1034,7 @@ def main() -> None:
                 st.markdown('<div class="section-tag">XU HƯỚNG CHỦ ĐỀ</div>', unsafe_allow_html=True)
                 st.subheader("Chủ đề biến động (2 cửa sổ 6 giờ)")
                 st.caption(
-                    "So sánh hai cửa sổ 6 giờ đã kết thúc theo giờ Việt Nam. Dấu (+) tăng, (-) giảm. "
-                    "Nếu coverage chưa đủ, biến động chỉ phản ánh số bài thu thập được."
+                    "Chênh lệch số bài quan sát giữa hai cửa sổ 6 giờ đã kết thúc, theo giờ Việt Nam."
                 )
 
                 trend_bounds = _trend_window_bounds(window_bounds, date_start, date_end)
@@ -1087,8 +1093,7 @@ def main() -> None:
             st.markdown('<div class="section-tag">TỪ KHÓA BÀI VIẾT</div>', unsafe_allow_html=True)
             st.subheader("Top từ khóa xuất hiện nhiều nhất")
             st.caption(
-                "Tần suất xuất hiện (document frequency) trên văn bản đã chuẩn hóa (`clean_text`) của các bài báo đang lọc. "
-                "Đây là tín hiệu mô tả thống kê, không phải mô hình phân loại chủ đề chuyên sâu."
+                "Số bài chứa mỗi từ khóa trong phạm vi bộ lọc đang chọn."
             )
 
             keyword_data = [
@@ -1132,12 +1137,14 @@ def main() -> None:
         with articles_tab:
             st.markdown('<div class="section-tag">DANH SÁCH BÀI VIẾT</div>', unsafe_allow_html=True)
             st.subheader("Khám phá danh sách bài báo")
-            st.caption("Truy vấn trực tiếp và phân trang an toàn từ SQLite; tiêu đề và nội dung được xử lý chống chèn mã độc.")
+            st.caption("Đọc tiêu đề, xem nguồn tin hoặc mở bài báo gốc.")
 
             ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([2, 2, 4])
             with ctrl_c1:
                 page_size = st.selectbox("Số bài mỗi trang", [10, 25, 50], index=1, key="article_page_size")
             total_pages = max(1, (total + page_size - 1) // page_size)
+            if st.session_state.get("article_page", 1) > total_pages:
+                st.session_state["article_page"] = total_pages
             with ctrl_c2:
                 page = st.number_input(
                     f"Trang (1–{total_pages})",
@@ -1171,38 +1178,16 @@ def main() -> None:
                     "Vui lòng nới lỏng từ khóa hoặc nhấn 'Đặt lại bộ lọc' trên thanh bên."
                 )
             else:
-                table_rows = []
-                for article_id, title, row_source, row_category, event_date, row_sentiment, canonical_url in article_rows:
-                    table_rows.append(
-                        {
-                            "Tiêu đề": title or "(Không có tiêu đề)",
-                            "Nguồn": SOURCE_LABELS.get(row_source, row_source or "Chưa rõ"),
-                            "Chủ đề": CATEGORY_LABELS.get(row_category, row_category or "Khác"),
-                            "Ngày đăng": _format_date(event_date),
-                            "Sắc thái": SENTIMENT_LABELS.get(row_sentiment, "Chưa có"),
-                            "Mở bài": _safe_url(canonical_url),
-                        }
-                    )
-                st.dataframe(
-                    table_rows,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Tiêu đề": st.column_config.TextColumn("Tiêu đề", width="large"),
-                        "Mở bài": st.column_config.LinkColumn("Mở bài", validate="^https?://"),
-                    },
-                )
-                st.caption(f"Đang hiển thị {len(table_rows)} bài · Trang {int(page)}/{total_pages}.")
+                st.markdown("".join(_article_card(row) for row in article_rows), unsafe_allow_html=True)
+                st.caption(f"Đang hiển thị {len(article_rows)} bài · Trang {int(page)}/{total_pages}.")
 
         # =========================================================
         # TAB 3: CHẤT LƯỢNG DỮ LIỆU
         # =========================================================
         with quality_tab:
-            st.markdown('<div class="section-tag">ĐỘ TIN CẬY & GIỚI HẠN</div>', unsafe_allow_html=True)
-            st.subheader("Chất lượng dữ liệu và Giới hạn hệ thống")
-            st.caption(
-                "Các chỉ số đánh giá độ hoàn chỉnh của dữ liệu thu thập và tính minh bạch về giới hạn của mô hình."
-            )
+            st.markdown('<div class="section-tag">NGUỒN & DỮ LIỆU</div>', unsafe_allow_html=True)
+            st.subheader("Thông tin dữ liệu")
+            st.caption("Nguồn tin, phiên dữ liệu và thông tin phân tích.")
 
             missing_date = connection.execute(
                 f"SELECT COUNT(*) FROM articles{where} AND event_date IS NULL",
@@ -1211,36 +1196,45 @@ def main() -> None:
             missing_prediction = total - predicted
 
             q1, q2, q3 = st.columns(3)
-            q1.metric("Trạng thái Coverage", coverage_status or "unknown")
+            q1.metric("Bài có ngày đăng", _format_number(total - missing_date))
             q2.metric("Thiếu ngày đăng", _format_number(missing_date))
             q3.metric("Chưa có dự đoán", _format_number(missing_prediction))
             st.caption(
-                f"Ngày đăng của toàn dataset (giờ Việt Nam): {_format_date(min_date)} → {_format_date(max_date)}. "
-                "Đây không phải khoảng thời gian thu thập RSS hoặc bằng chứng coverage đã đủ."
+                f"Ngày đăng của toàn dataset (giờ Việt Nam): {_format_date(min_date)} → {_format_date(max_date)}."
             )
 
-            st.markdown("#### 🔬 Giới hạn và Độ tin cậy của Mô hình")
-            st.warning(
-                f"⚠️ **Model đang dùng: `{active_model}`** — **Model thử nghiệm, chưa được đánh giá trên tập tin tức độc lập do người gán nhãn.**\n\n"
-                f"- **Tỷ lệ có dự đoán:** `{prediction_rate:.1%}` ({predicted}/{total} bài). "
-                "Con số này chỉ phản ánh độ phủ gán nhãn kỹ thuật (prediction coverage), **tuyệt đối không phải độ chính xác (accuracy)** của mô hình.\n"
-                "- **Phạm vi phân tích:** Sắc thái mô tả nội dung tiêu đề và đoạn trích mô tả của bài báo từ nguồn RSS, "
-                "không phân tích toàn văn và **không đại diện cho cảm xúc độc giả** hay thái độ của công chúng."
-            )
-
-            st.markdown("#### 📡 Đánh giá Tính hoàn chỉnh (Coverage)")
-            if coverage_status != "ok":
-                st.warning(
-                    f"⚠️ **Coverage hiện tại là `{coverage_status}`:**\n\n"
-                    "- Chưa đồng thời đáp ứng tối thiểu 14 ngày và tỷ lệ slot thu thập thành công >= 95% cho mỗi feed.\n"
-                    "- Khoảng trống dữ liệu do lỗi mạng hoặc gián đoạn feed **không được xem là 0 bài**.\n"
-                    "- Do đó, không kết luận xu hướng tăng hoặc giảm là đáng tin cậy.\n"
-                    + (f"- **Đường dẫn manifest:** `{coverage_manifest_path}`" if coverage_manifest_path else "")
+            with st.expander("Thông tin xử lý", expanded=False):
+                info_left, info_right = st.columns(2)
+                with info_left:
+                    st.markdown(
+                        f"**Snapshot ID:** `{snapshot_id}`\n\n"
+                        f"**Dataset:** `{dataset_id}`\n\n"
+                        f"**Cập nhật:** {_format_timestamp(published_at)}\n\n"
+                        f"**Cơ sở dữ liệu:** `{Path(db_path).name}`\n\n"
+                        f"**Model version:** `{active_model}`"
+                    )
+                with info_right:
+                    st.markdown(
+                        f"**Coverage (metadata):** `{coverage_status or 'unknown'}`\n\n"
+                        f"**Cửa sổ so sánh:** {_format_timestamp(window_bounds[0])} → {_format_timestamp(window_bounds[2])}\n\n"
+                        f"**Ranh giới cửa sổ:** {_format_timestamp(window_bounds[1])}\n\n"
+                        "**Múi giờ:** Asia/Ho_Chi_Minh (UTC+07:00)\n\n"
+                        f"**Manifest:** `{coverage_manifest_path or 'Chưa gắn'}`"
+                    )
+                st.caption(
+                    "Mô hình sentiment đang ở giai đoạn thử nghiệm; chưa có kết quả đánh giá độc lập đã chốt trên tin tức. "
+                    "Tỷ lệ có dự đoán phản ánh độ phủ nhãn, không phải độ chính xác. "
+                    "Sắc thái mô tả nội dung tiêu đề/mô tả, không đại diện cho cảm xúc độc giả."
                 )
-            else:
-                st.success("✅ Trạng thái coverage đạt chuẩn (`ok`). Dữ liệu quan sát đáp ứng yêu cầu tính toán.")
+                st.caption(
+                    "Coverage đối chiếu số lượt thu thập trong 14 ngày và tỷ lệ slot thành công >= 95% mỗi feed. "
+                    "Ngày đăng không phải khoảng thời gian thu thập RSS; khoảng thiếu lượt không được tính là 0 bài. "
+                    "Biểu đồ thể hiện dữ liệu quan sát. Nhóm tin được gợi ý theo độ tương đồng tiêu đề/mô tả."
+                )
+                if bulletin_error:
+                    st.caption(bulletin_error)
 
-            st.markdown("#### 📋 Chi tiết Tình trạng Feed Nguồn (Source Health)")
+            st.markdown("#### Hoạt động nguồn tin")
             health_columns = {row[1] for row in connection.execute("PRAGMA table_info(source_health)")}
             if "feed_id" in health_columns:
                 health_query = (
@@ -1273,11 +1267,6 @@ def main() -> None:
                 st.dataframe(health_data, use_container_width=True, hide_index=True)
             else:
                 st.info("ℹ️ Snapshot chưa có dữ liệu health cho dataset này.")
-
-            st.caption(
-                f"Model version đọc trực tiếp từ snapshot: `{active_model}`. "
-                "Không tự động thay đổi model hay sửa đổi dữ liệu."
-            )
 
     finally:
         if connection:
